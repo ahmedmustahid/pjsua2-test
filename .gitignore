@@ -164,3 +164,4 @@ cython_debug/
 
 # some binary file
 *.wav
+**/*.yaml
