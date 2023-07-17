@@ -68,6 +68,7 @@ class Call(pj.Call):
         try:
             # get the "local" media
             aud_med = self.getAudioMedia(-1)
+            #-1 to specify any first audio media registered in the conference bridge.
         except pj.Error as e:
             print("exception!!: {}".format(e.args))
             handleErr(e)
@@ -75,6 +76,7 @@ class Call(pj.Call):
         if not self.wav_player:
             self.wav_player = pj.AudioMediaPlayer()
             try:
+                #automatically add this player to the conference bridge.By default, the WAV file will be played in a loop
                 self.wav_player.createPlayer("./input.16.wav")
             except pj.Error as e:
                 print("Exception!!: failed opening wav file")

@@ -17,25 +17,19 @@ ep = None
 class Call(pj.Call):
     def __init__(self, acc, call_id=pj.PJSUA_INVALID_ID):
         pj.Call.__init__(self, acc, call_id)
+        self.acc = acc
         self.call_state = None
+        self.curStatus = None
+        self.wav_player = None
         self.wav_recorder = None
 
     def onCallState(self, prm):
-        """
-        typedef enum pjsip_inv_state
-        {
-            PJSIP_INV_STATE_NULL,        /**< Before INVITE is sent or received  */
-            PJSIP_INV_STATE_CALLING,        /**< After INVITE is sent            */
-            PJSIP_INV_STATE_INCOMING,        /**< After INVITE is received.        */
-            PJSIP_INV_STATE_EARLY,        /**< After response with To tag.        */
-            PJSIP_INV_STATE_CONNECTING,        /**< After 2xx is sent/received.        */
-            PJSIP_INV_STATE_CONFIRMED,        /**< After ACK is sent/received.        */
-            PJSIP_INV_STATE_DISCONNECTED,   /**< Session is terminated.            */
-        } pjsip_inv_state;
-        """
         ci = self.getInfo()
+        print("*** Call: {} [{}]".format(ci.remoteUri, ci.lastStatusCode))
         logging.debug("Call state: {}".format(ci.state))
         logging.debug("Call stateText: {}".format(ci.stateText))
+        if ci.lastStatusCode == 404:
+            print("call can't established with code 404!")
         # save call state to some class var
         self.call_state = ci.state
 
@@ -53,24 +47,39 @@ class Call(pj.Call):
             print(f"some exception occured {err}")
 
     def onCallMediaState(self, prm):
-       aud_med = None
-       try:
-           # get the "local" media
-           aud_med = self.getAudioMedia(-1)
-       except Exception as e:
-           print("exception!!: {}".format(e.args))
+        aud_med = None
+        try:
+            # get the "local" media
+            aud_med = self.getAudioMedia(-1)
+        except Exception as e:
+            print("exception!!: {}".format(e.args))
+            handleErr(e)
+           
+        if not self.wav_player:
+            self.wav_player = pj.AudioMediaPlayer()
+            try:
+                #automatically add this player to the conference bridge.By default, the WAV file will be played in a loop
+                self.wav_player.createPlayer("/home/ahmed/work/aiIdea/pjsua2-test/AD-FinalCountdown_pt2.wav", pj.PJMEDIA_FILE_NO_LOOP)
+            except pj.Error as e:
+                print("Exception!!: failed opening wav file")
+                del self.wav_player
+                self.wav_player = None
+                handleErr(e)
+            else:
+                self.wav_player.startTransmit(aud_med)
 
-       if not self.wav_recorder:
-           self.wav_recorder = pj.AudioMediaRecorder()
-           try:
-               self.wav_recorder.createRecorder("./recordingTest.wav")
-           except Exception as e:
-               print("Exception!!: failed opening wav file")
-               del self.wav_recorder
-               self.wav_recorder = None
 
-       if self.wav_recorder:
-           aud_med.startTransmit(self.wav_recorder)
+        if not self.wav_recorder:
+            self.wav_recorder = pj.AudioMediaRecorder()
+            try:
+                self.wav_recorder.createRecorder("./recordingTest.wav")
+            except Exception as e:
+                print("Exception!!: failed opening wav file")
+                del self.wav_recorder
+                self.wav_recorder = None
+
+        if self.wav_recorder:
+            aud_med.startTransmit(self.wav_recorder)
    
 
 
@@ -90,9 +99,7 @@ def main(cfg : DictConfig):
     ep_cfg.uaConfig.mainThreadOnly = True
 
     ep_cfg.logConfig.level = 5
-    ep_cfg.logConfig.level = 1
     ep_cfg.logConfig.consoleLevel = 5
-    ep_cfg.logConfig.consoleLevel = 1
 
     ep = pj.Endpoint()
     ep.libCreate()

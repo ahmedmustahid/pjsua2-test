@@ -48,7 +48,7 @@ class Call(pj.Call):
         if not self.wav_player:
             self.wav_player = pj.AudioMediaPlayer()
             try:
-                self.wav_player.createPlayer("./input.16.wav")
+                self.wav_player.createPlayer("/home/ahmed/work/aiIdea/pjsua2-test/AD-FinalCountdown_pt2.wav")
             except pj.Error as e:
                 del self.wav_player
                 self.wav_player = None
