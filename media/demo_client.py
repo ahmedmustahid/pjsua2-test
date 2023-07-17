@@ -6,6 +6,7 @@ import logging
 import pjsua2 as pj
 
 
+from signal import signal, SIGINT, SIGTERM
 from utils import sleep4PJSUA2, handleErr, quitPJSUA
 
 import hydra
@@ -13,6 +14,36 @@ from omegaconf import DictConfig, OmegaConf
 
 # ep = pj.Endpoint()
 ep = None
+
+DBG = 1
+
+
+class Unbuffered(object):
+    def __init__(self, stream):
+        self.stream = stream
+
+    def write(self, data):
+        self.stream.write(data)
+        self.stream.flush()
+
+    def writelines(self, datas):
+        self.stream.writelines(datas)
+        self.stream.flush()
+
+    def __getattr__(self, attr):
+        return getattr(self.stream, attr)
+
+
+sys.stdout = Unbuffered(sys.stdout)
+
+class Instruction(Enum):
+    TB_REQUEST='request'
+    TB_GRANT='grant'
+    TB_DENY='deny'
+    TB_RELEASE='release'
+    TB_TAKEN='taken'
+    TB_IDLE='idle'
+
 
 class Call(pj.Call):
     def __init__(self, acc, call_id=pj.PJSUA_INVALID_ID):
@@ -81,7 +112,10 @@ class Call(pj.Call):
         if self.wav_recorder:
             aud_med.startTransmit(self.wav_recorder)
    
-
+def handler(signal_received, frame):
+    # Handle any cleanup here
+    print('SIGTERM, SIGINT or CTRL-C detected. Exiting gracefully')
+    # quitPJSUA()
 
 class Account(pj.Account):
     def __init__(self):
@@ -91,6 +125,8 @@ class Account(pj.Account):
 def main(cfg : DictConfig):
     print(OmegaConf.to_yaml(cfg))
 
+    signal(SIGTERM, handler)
+    signal(SIGINT, handler)
     # Create and initialize the library
     global ep
     ep_cfg = pj.EpConfig()
@@ -112,6 +148,7 @@ def main(cfg : DictConfig):
 
     # Start the library
     ep.libStart()
+    print("*** PJSUA2 STARTED ***")
 
     #add credentials
     sipServerIP = cfg.sipServer.ip 
