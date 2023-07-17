@@ -114,11 +114,20 @@ def main(cfg : DictConfig):
         call.makeCall(idUri, prm)
 
         # hangup all call after 40 sec
-        sleep4PJSUA2(10)
+        sleep4PJSUA2(100)
 
-        print("*** PJSUA2 SHUTTING DOWN ***")
-        del call
-        del acc
+        # # while not call.done:
+        # while True:
+        #     ep.libHandleEvents(10)
+        #     # check your saved call_state here
+        #     if not call.call_state:
+        #         continue
+        #     if call.call_state == pj.PJSIP_INV_STATE_CONFIRMED:
+        #         call.done = True
+
+        #     print("*** PJSUA2 SHUTTING DOWN ***")
+        #     del call
+        #     del acc
 
     except KeyboardInterrupt as e:
         print("Catch the KeyboardInterrupt, exception error is: {}".format(e.args))
