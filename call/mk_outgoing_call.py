@@ -4,6 +4,8 @@ import traceback
 import sys
 import utils
 
+import hydra
+from omegaconf import DictConfig, OmegaConf
 
 class Call(pj.Call):
     """
@@ -67,7 +69,8 @@ def enumLocalMedia(ep):
             med_info.portId, med_info.name, med_info.format.channelCount))
 
 
-def main():
+@hydra.main(version_base=None, config_path="../conf", config_name="config")
+def main(cfg : DictConfig):
     ep = None
     try:
         # init the lib
@@ -81,18 +84,22 @@ def main():
         # tcfg.port = 5060
         ep.transportCreate(pj.PJSIP_TRANSPORT_UDP, tcfg)
 
-        # add account config
-        acc_cfg = pj.AccountConfig()
-        acc_cfg.idUri = "sip:1@kamailio"
-        print("*** start sending SIP REGISTER ***")
-        acc_cfg.regConfig.registrarUri = "sip:kamailio"
 
-        # if there needed credential to login, just add following lines
-        cred = pj.AuthCredInfo("digest", "*", "1", 0, "test")
-        acc_cfg.sipConfig.authCreds.append(cred)
+        #add credentials
+        sipServerIP = cfg.sipServer.ip 
+        sipServerPort = cfg.sipServer.port
+        sipServerUsername = cfg.sipServer.username
+        sipServerPassword = cfg.sipServer.password 
+        acfg = pj.AccountConfig()
+        idUri = "sip:"+sipServerUsername+"@"+sipServerIP+":"+str(sipServerPort)
+        print(f"sending request to {idUri}")
+        acfg.idUri = idUri
+        cred = pj.AuthCredInfo("digest", "*", sipServerUsername, 0, sipServerPassword)
+        acfg.sipConfig.authCreds.append(cred)
+
 
         acc = pj.Account()
-        acc.create(acc_cfg)
+        acc.create(acfg)
 
         ep.libStart()
         print("*** PJSUA2 STARTED ***")
@@ -104,7 +111,7 @@ def main():
         prm = pj.CallOpParam(True)
         prm.opt.audioCount = 1
         prm.opt.videoCount = 0
-        call.makeCall("sip:2@kamailio", prm)
+        call.makeCall(idUri, prm)
 
         # hangup all call after 40 sec
         sleep4PJSUA2(10)
