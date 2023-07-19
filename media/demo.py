@@ -18,6 +18,7 @@ class Call(pj.Call):
     def __init__(self, acc, call_id=pj.PJSUA_INVALID_ID):
         pj.Call.__init__(self, acc, call_id)
         self.call_state = None
+        self.wav_player = None
         self.wav_recorder = None
 
     def onCallState(self, prm):
@@ -45,12 +46,18 @@ class Call(pj.Call):
         # play_dev_med = ep.instance().audDevManager().getPlaybackDevMedia()
         play_dev_med = pj.Endpoint.instance().audDevManager().getPlaybackDevMedia()
         print(play_dev_med)
-        player = pj.AudioMediaPlayer()
-        try:
-            player.createPlayer("/home/ahmed/work/aiIdea/pjsua2-test/AD-FinalCountdown_pt2.wav", pj.PJMEDIA_FILE_NO_LOOP)
-            player.startTransmit(play_dev_med)
-        except pj.Error as err:
-            print(f"some exception occured {err}")
+        if not self.wav_player:
+            self.wav_player = pj.AudioMediaPlayer()
+            try:
+                self.wav_player.createPlayer("/home/ahmed/work/aiIdea/pjsua2-test/AD-FinalCountdown_pt2.wav", pj.PJMEDIA_FILE_NO_LOOP)
+                self.wav_player.startTransmit(play_dev_med)
+            except pj.Error as err:
+                print(f"some exception occured {err}")
+        
+        if ci.state == pj.PJSIP_INV_STATE_DISCONNECTED:
+            del self
+            print("deleting call")
+            sys.exit()
 
     def onCallMediaState(self, prm):
        aud_med = None
