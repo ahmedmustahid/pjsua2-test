@@ -1,6 +1,7 @@
 import pjsua2 as pj
 from utils import sleep4PJSUA2
-
+from omegaconf import DictConfig
+import hydra
 
 class Call(pj.Call):
     """
@@ -96,7 +97,8 @@ def enumLocalMedia(ep):
             med_info.portId, med_info.name, med_info.format.channelCount))
 
 
-def main():
+@hydra.main(version_base=None, config_path="../conf", config_name="config")
+def main(cfg : DictConfig):
     ep = None
     try:
         # init the lib
@@ -107,17 +109,22 @@ def main():
 
         # add some config
         tcfg = pj.TransportConfig()
-        tcfg.port = 5060
+        # tcfg.port = 5060
         ep.transportCreate(pj.PJSIP_TRANSPORT_UDP, tcfg)
 
         # add account config
+        sipServerIP = cfg.sipServer.ip 
+        sipServerPort = cfg.sipServer.port
+        sipServerUsername = cfg.sipServer.username
+        sipServerPassword = cfg.sipServer.password 
         acc_cfg = pj.AccountConfig()
-        acc_cfg.idUri = "sip:2@kamailio"
+        idUri = "sip:"+sipServerUsername+"@"+sipServerIP+":"+str(sipServerPort)
+        acc_cfg.idUri = idUri
         print("*** start sending SIP REGISTER ***")
-        acc_cfg.regConfig.registrarUri = "sip:kamailio"
+        acc_cfg.regConfig.registrarUri = idUri
 
         # if there needed credential to login, just add following lines
-        cred = pj.AuthCredInfo("digest", "*", "2", 0, "test")
+        cred = pj.AuthCredInfo("digest", "*", sipServerUsername, 0, sipServerPassword)
         acc_cfg.sipConfig.authCreds.append(cred)
 
         acc = Account()

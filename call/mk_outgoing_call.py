@@ -94,6 +94,10 @@ def main(cfg : DictConfig):
         idUri = "sip:"+sipServerUsername+"@"+sipServerIP+":"+str(sipServerPort)
         print(f"sending request to {idUri}")
         acfg.idUri = idUri
+
+        # acfg.regConfig.registrarUri = idUri
+
+
         cred = pj.AuthCredInfo("digest", "*", sipServerUsername, 0, sipServerPassword)
         acfg.sipConfig.authCreds.append(cred)
 

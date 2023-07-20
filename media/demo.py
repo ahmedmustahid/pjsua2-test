@@ -57,27 +57,36 @@ class Call(pj.Call):
         if ci.state == pj.PJSIP_INV_STATE_DISCONNECTED:
             del self
             print("deleting call")
+            ep.hangupAllCalls()
             sys.exit()
 
     def onCallMediaState(self, prm):
-       aud_med = None
-       try:
-           # get the "local" media
-           aud_med = self.getAudioMedia(-1)
-       except Exception as e:
-           print("exception!!: {}".format(e.args))
 
-       if not self.wav_recorder:
-           self.wav_recorder = pj.AudioMediaRecorder()
-           try:
-               self.wav_recorder.createRecorder("./recordingTest.wav")
-           except Exception as e:
-               print("Exception!!: failed opening wav file")
-               del self.wav_recorder
-               self.wav_recorder = None
+        # ci = self.getInfo()
 
-       if self.wav_recorder:
-           aud_med.startTransmit(self.wav_recorder)
+        # for i in range(ci.media.size()):
+        #     print("entered ")
+        #     if type(ci.media[i])==pj.PJMEDIA_TYPE_AUDIO and self.getMedia(i):
+
+
+        aud_med = None
+        try:
+            # get the "local" media
+            aud_med = self.getAudioMedia(-1)
+        except Exception as e:
+            print("exception!!: {}".format(e.args))
+
+        if not self.wav_recorder:
+            self.wav_recorder = pj.AudioMediaRecorder()
+            try:
+                self.wav_recorder.createRecorder("./recordingTest.wav")
+            except Exception as e:
+                print("Exception!!: failed opening wav file")
+                del self.wav_recorder
+                self.wav_recorder = None
+
+        if self.wav_recorder:
+            aud_med.startTransmit(self.wav_recorder)
    
 
 

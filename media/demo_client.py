@@ -6,6 +6,10 @@ import logging
 import pjsua2 as pj
 
 
+import threading
+import queue
+
+from enum import Enum
 from signal import signal, SIGINT, SIGTERM
 from utils import sleep4PJSUA2, handleErr, quitPJSUA
 
@@ -128,64 +132,140 @@ def main(cfg : DictConfig):
     signal(SIGTERM, handler)
     signal(SIGINT, handler)
     # Create and initialize the library
-    global ep
-    ep_cfg = pj.EpConfig()
+    try:
+        global ep
+        ep_cfg = pj.EpConfig()
 
-    ep_cfg.uaConfig.threadCnt = 0
-    ep_cfg.uaConfig.mainThreadOnly = True
+        ep_cfg.uaConfig.threadCnt = 0
+        ep_cfg.uaConfig.mainThreadOnly = True
 
-    ep_cfg.logConfig.level = 5
-    ep_cfg.logConfig.consoleLevel = 5
+        ep_cfg.logConfig.level = 5
+        ep_cfg.logConfig.consoleLevel = 5
 
-    ep = pj.Endpoint()
-    ep.libCreate()
-    ep.libInit(ep_cfg)
-    # ep.audDevManager().setNullDev()
+        ep = pj.Endpoint()
+        ep.libCreate()
+        ep.libInit(ep_cfg)
+        # ep.audDevManager().setNullDev()
 
-    # Create SIP transport. Error handling sample is shown
-    sipTpConfig = pj.TransportConfig()
-    ep.transportCreate(pj.PJSIP_TRANSPORT_UDP, sipTpConfig)
+        # Create SIP transport. Error handling sample is shown
+        sipTpConfig = pj.TransportConfig()
+        ep.transportCreate(pj.PJSIP_TRANSPORT_UDP, sipTpConfig)
 
-    # Start the library
-    ep.libStart()
-    print("*** PJSUA2 STARTED ***")
+        # Start the library
+        ep.libStart()
+        print("*** PJSUA2 STARTED ***")
 
-    #add credentials
-    sipServerIP = cfg.sipServer.ip 
-    sipServerPort = cfg.sipServer.port
-    sipServerUsername = cfg.sipServer.username
-    sipServerPassword = cfg.sipServer.password 
-    acfg = pj.AccountConfig()
-    idUri = "sip:"+sipServerUsername+"@"+sipServerIP+":"+str(sipServerPort)
-    print(f"sending request to {idUri}")
-    acfg.idUri = idUri
-    cred = pj.AuthCredInfo("digest", "*", sipServerUsername, 0, sipServerPassword)
-    acfg.sipConfig.authCreds.append(cred)
+        #add credentials
+        sipServerIP = cfg.sipServer.ip 
+        sipServerPort = cfg.sipServer.port
+        sipServerUsername = cfg.sipServer.username
+        sipServerPassword = cfg.sipServer.password 
+        acfg = pj.AccountConfig()
+        idUri = "sip:"+sipServerUsername+"@"+sipServerIP+":"+str(sipServerPort)
+        print(f"sending request to {idUri}")
+        acfg.idUri = idUri
+        cred = pj.AuthCredInfo("digest", "*", sipServerUsername, 0, sipServerPassword)
+        acfg.sipConfig.authCreds.append(cred)
 
 
-    # Create the account
-    acc = Account()
-    acc.create(acfg)
+        # Create the account
+        acc = Account()
+        acc.create(acfg)
 
-    ep.audDevManager().setNullDev()
-    call = Call(acc)
-    call_param = pj.CallOpParam()
-    call_param.opt.audioCount = 1
-    call_param.opt.videoCount = 0
-    call_prm = pj.CallOpParam(True)
-    call.makeCall(idUri , call_prm)
+        '''
+    
+        #ep.audDevManager().setNullDev()
+        pj.Endpoint.instance().audDevManager().setNullDev()
+        call = Call(acc)
+        call_param = pj.CallOpParam()
+        call_param.opt.audioCount = 1
+        call_param.opt.videoCount = 0
+        call_prm = pj.CallOpParam(True)
+        call.makeCall(idUri , call_prm)
 
-    # while not call.done:
-    while True:
-        ep.libHandleEvents(10)
-        # check your saved call_state here
-        if not call.call_state:
-            continue
-        if call.call_state == pj.PJSIP_INV_STATE_CONFIRMED:
-            call.done = True
+        # while not call.done:
+        while True:
+            ep.libHandleEvents(10)
+            # check your saved call_state here
+            if not call.call_state:
+                continue
+            if call.call_state == pj.PJSIP_INV_STATE_CONFIRMED:
+                call.done = True
 
-    # Destroy the library
-    ep.libDestroy()
+        # Destroy the library
+        ep.libDestroy()
+        '''
+
+        pj.Endpoint.instance().audDevManager().setNullDev()
+
+        # add an buddy using dst uri
+
+        callURI = idUri
+        buddy = pj.Buddy()
+        buddyCfg = pj.BuddyConfig()
+        buddyCfg.uri = callURI
+        buddy.create(acc, buddyCfg)
+
+        # call to the dst uri
+        call = Call(acc)
+        prm = pj.CallOpParam(True)
+        prm.opt.audioCount = 1
+        prm.opt.videoCount = 0
+        call.makeCall(callURI, prm)
+
+        inputQueue = queue.Queue()
+        def scanKeyboardPress():
+            while True:
+                s = input()
+                inputQueue.put(s)
+                print("****** push s")
+
+        inputThread = threading.Thread(target=scanKeyboardPress)
+        # set it as daemon
+        inputThread.setDaemon(True)
+        inputThread.start()
+
+        
+        def control_loop():
+            # isQuit = not call.isActive()
+            isQuit = False;
+            while not inputQueue.empty() and not isQuit:
+                # r stand for ptt request
+                instSet = set(["request", "release", "print"])
+                inst = inputQueue.get()
+                print("****** pop {}".format(inst))
+                if inst in instSet:
+                    if inst == "print":
+                        print()
+                    elif inst == "request":
+                        instantMessagePrm = pj.SendInstantMessageParam()
+                        instantMessagePrm.content = Instruction.TB_REQUEST.value
+                        instantMessagePrm.contentType = "text/plain"
+                        buddy.sendInstantMessage(instantMessagePrm)
+                    elif inst == "release":
+                        instantMessagePrm = pj.SendInstantMessageParam()
+                        instantMessagePrm.content = Instruction.TB_RELEASE.value
+                        instantMessagePrm.contentType = "text/plain"
+                        buddy.sendInstantMessage(instantMessagePrm)
+            return isQuit
+
+
+        # hangup all call after the time we specified at args(sec)
+        sleep4PJSUA2(-1, control_loop, 0.5)
+
+
+    except KeyboardInterrupt as e:
+        print("catch KeyboardInterrupt!!, exception error is: {}".format(e.args))
+    finally:
+        ep.hangupAllCalls()
+
+        del call
+
+        print("*** PJSUA2 SHUTTING DOWN ***")
+        del acc
+        # close the library
+        ep.libDestroy()
+
 
 
 if __name__ == "__main__":
