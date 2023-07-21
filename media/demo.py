@@ -15,6 +15,8 @@ class Call(pj.Call):
     def __init__(self, acc, call_id=pj.PJSUA_INVALID_ID):
         pj.Call.__init__(self, acc, call_id)
         self.call_state = None
+        self.wav_recorder = None
+        self.wav_player = None
 
     def onCallState(self, prm):
         """
@@ -45,6 +47,48 @@ class Call(pj.Call):
         player.createPlayer("/home/efficacy38/Tmp/pjsua2/media/test.wav", pj.PJMEDIA_FILE_NO_LOOP)
         # player.createPlayer("/home/efficacy38/test.wav")
         player.startTransmit(play_dev_med)
+
+    def onCallMediaState(self, prm):
+        aud_med = None
+        try:
+            # get the "local" media
+            aud_med = self.getAudioMedia(-1)
+        except Exception as e:
+            print("exception!!: {}".format(e.args))
+
+        if not self.wav_recorder:
+            self.wav_recorder = pj.AudioMediaRecorder()
+            try:
+                self.wav_recorder.createRecorder("./recording.wav")
+            except Exception as e:
+                print("Exception!!: failed opening wav file")
+                del self.wav_recorder
+                self.wav_recorder = None
+
+        if self.wav_recorder:
+            aud_med.startTransmit(self.wav_recorder)
+        #return super().onCallMediaState(prm)
+
+        aud_med = None
+        try:
+            # get the "local" media
+            aud_med = self.getAudioMedia(-1)
+        except pj.Error as e:
+            #handleErr(e)
+            print(f"error {e}")
+
+        if not self.wav_player:
+            self.wav_player = pj.AudioMediaPlayer()
+            try:
+                self.wav_player.createPlayer("/home/ahmed/work/aiIdea/pjsua2-test/AD-FinalCountdown_pt2.wav")
+            except pj.Error as e:
+                del self.wav_player
+                self.wav_player = None
+                print(f"error {e}")
+                #handleErr(e)
+
+        if self.wav_player:
+            self.wav_player.startTransmit(aud_med)
 
 
 class Account(pj.Account):
