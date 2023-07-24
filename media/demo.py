@@ -17,6 +17,7 @@ class Call(pj.Call):
         self.call_state = None
         self.wav_recorder = None
         self.wav_player = None
+        self.pcm_stream = None
 
     def onCallState(self, prm):
         """
@@ -89,6 +90,12 @@ class Call(pj.Call):
 
         if self.wav_player:
             self.wav_player.startTransmit(aud_med)
+
+        if not self.pcm_stream:
+            print("yess###########################")
+            self.pcm_stream = pj.AudioMediaStream()
+            self.pcm_stream.createMediaStream(ci.id)
+            self.pcm_stream.startTransmit(aud_med) 
 
 
 class Account(pj.Account):
